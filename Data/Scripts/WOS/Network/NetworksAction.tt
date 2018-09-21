@@ -1,0 +1,198 @@
+﻿<#@ template language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+#line 2
+using Phoera.Framework;
+using ProtoBuf;
+using Sandbox.ModAPI;
+
+namespace Phoera.Network
+{
+	public static class NetworkActionExtensions
+	{
+<#
+for(int i =0; i<= 16;i++)
+{
+#>
+		public static Actions.NetworkAction<# GenericArgs(i); #> CreateAction<# GenericArgs(i); #>(this NetworkHandlerSystem nhs, Actions.NAction<# GenericArgs(i); #> handler)
+		{
+			return new Actions.NetworkAction<# GenericArgs(i); #>(nhs,handler);
+		}
+<#
+}
+#>
+	}
+}
+namespace Phoera.Network.Actions
+{
+<#
+for(int i =0; i<= 16;i++)
+{
+#>
+	public delegate void NAction<#
+	GenericArgs(i);
+	#>(ulong sender<#
+	if(i>0)
+	{
+	#>, <#
+	}
+	Args(i);
+	#>);
+
+	public class NetworkAction<#
+	GenericArgs(i);
+	#>
+
+	{
+		readonly NAction<# GenericArgs(i); #> _handler;
+		readonly NetworkHandlerSystem _nhs;
+		readonly ulong _id;
+
+		<# if(i>0)
+		{#>[ProtoContract]
+		struct Args 
+		{
+<# for(int j = 1; j<= i;j++)
+			{
+#>
+			[ProtoMember(<#= j #>)]
+			public T<#= j #> arg<#= j #>;
+<#}#>
+		}
+		<#}#>public NetworkAction(NetworkHandlerSystem nhs, NAction<# GenericArgs(i); #> handler)
+		{
+			_nhs = nhs;
+			_id = nhs.RegisterActionHandler(HandlePacket);
+			_handler = handler;
+		}
+		Packets.PacketAction PreparePacket(<# Args(i); #>)
+		{
+			var res = new Packets.PacketAction { Id = _id };
+<#
+	if(i>0)
+	{#>
+			var t = new Args();
+<#
+	for(int j = 1; j<= i;j++)
+			{
+#>
+			t.arg<#= j #> = arg<#= j #>;
+<#
+		}
+#>
+			res.Data = t.ToBinary();
+<#
+	}
+#>
+			return res;
+		}
+		public void CallToServer(<#	Args(i); #>)
+		{
+			if(NetworkHandlerSystem.IsServer)
+			{
+				_handler(MyAPIGateway.Multiplayer.MyId<#
+	if(i>0)
+	{
+	#>, <#
+	Args(i, "");
+	}
+	#>);
+				return;
+			}
+			_nhs.SendMessageToServer(PreparePacket(<#	Args(i,""); #>));
+		}
+		public void CallToOthers(<#	Args(i); #>)
+		{
+			_nhs.SendMessageToOthers(PreparePacket(<#	Args(i,""); #>));
+		}
+		public void CallToOthers(<#	Args(i); #><# if(i>0){#>, <#}#>params ulong[] excluding)
+		{
+			_nhs.SendMessageToOthers(PreparePacket(<#	Args(i,""); #>), excluding);
+		}
+		public void CallTo(<# Args(i); #><# if(i>0){#>, <#}#>params ulong[] targets)
+		{
+			_nhs.SendMessageTo(PreparePacket(<#	Args(i,""); #>), targets);
+		}
+		public void CallTo(<# Args(i); #><# if(i>0){#>, <#}#>ulong target)
+		{
+			if(target == MyAPIGateway.Multiplayer.MyId)
+			{
+				_handler(MyAPIGateway.Multiplayer.MyId<#
+	if(i>0)
+	{
+	#>, <#
+	Args(i, "");
+	}
+	#>);
+				return;
+			}
+			_nhs.SendMessageTo(PreparePacket(<#	Args(i,""); #>), target);
+		}
+		public void HandlePacket(ulong sender, byte[] data)
+		{
+<#
+			if(i>0)
+			{
+			#>
+			var args = data.FromBinary<Args>();
+<#
+			}
+			#>
+			_handler(sender<#
+	if(i>0)
+	{
+	#>, <#
+	Args(i, "args.");
+	}
+	#>);
+		}
+	}
+
+<#
+}
+#>
+}
+<#+
+public void GenericArgs(int i)
+{
+if(i>0)
+{
+#><<#+
+	for(int j=1;j<=i;j++)
+	{
+
+	#>T<#= j #><#+
+	if(j!=i)
+	{
+	 #>, <#+
+	}
+	}
+#>><#+
+}
+}
+#>
+<#+
+public void Args(int i, string prefix = null, string delimiter = ", ")
+{
+if(i>0)
+{
+	for(int j=1;j<=i;j++)
+	{
+	  if(prefix==null)
+	  {
+	#>T<#= j #> arg<#= j #><#+
+	  }
+	  else
+	  {
+	#><#= prefix #>arg<#= j #><#+
+	  }
+	if(j!=i)
+	{
+	 #><#= delimiter #><#+
+	}
+	}
+}
+}
+#>
