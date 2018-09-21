@@ -136,11 +136,7 @@ namespace Phoera.Network
                 {
                     new PacketBase().ToBinary().FromBinary<PacketBase>(); // bug fix for protobuf-net serializer generation.
                     _modId = CoreBase.Instance.ModId;
-                    string str = _modId.ToString();
-                    if (!ushort.TryParse(str.GetLastChars(5), out _networkId))
-                    {
-                        _networkId = ushort.Parse(str.GetLastChars(4));
-                    }
+                    _networkId = (ushort)(_modId & 0xFFFF);
                     MyAPIGateway.Multiplayer.RegisterMessageHandler(_networkId, MPMessageHandler);
                     _initDone = true;
                     if (IsClient)
